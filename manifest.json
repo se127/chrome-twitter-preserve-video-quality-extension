@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "X Video Quality",
+  "version": "1.0.0",
+  "description": "Remember your preferred X (Twitter) video quality and re-apply it on every page load.",
+  "permissions": ["storage", "tabs"],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "X Video Quality"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.x.com/*",
+        "*://*.twitter.com/*"
+      ],
+      "exclude_matches": [
+        "*://*.x.com/i/cards-frame/*",
+        "*://*.twitter.com/i/cards-frame/*"
+      ],
+      "js": ["src/content/playlist-hijack.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.x.com/*",
+        "*://*.twitter.com/*"
+      ],
+      "exclude_matches": [
+        "*://*.x.com/i/cards-frame/*",
+        "*://*.twitter.com/i/cards-frame/*"
+      ],
+      "js": ["src/content/settings-bridge.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED",
+      "all_frames": false
+    }
+  ]
+}

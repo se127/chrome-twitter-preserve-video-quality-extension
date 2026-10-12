@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>X Video Quality</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Video quality</h1>
+
+      <fieldset id="quality">
+        <legend>Preferred quality</legend>
+        <label><input type="radio" name="quality" value="best" /><span>Best available</span></label>
+        <label><input type="radio" name="quality" value="2160" /><span>2160p (4K)</span></label>
+        <label><input type="radio" name="quality" value="1440" /><span>1440p</span></label>
+        <label><input type="radio" name="quality" value="1080" /><span>1080p</span></label>
+        <label><input type="radio" name="quality" value="720" /><span>720p</span></label>
+        <label><input type="radio" name="quality" value="480" /><span>480p</span></label>
+        <label><input type="radio" name="quality" value="360" /><span>360p</span></label>
+        <label><input type="radio" name="quality" value="240" /><span>240p</span></label>
+        <label><input type="radio" name="quality" value="lowest" /><span>Lowest available</span></label>
+      </fieldset>
+
+      <fieldset id="fallback">
+        <legend>If that quality is not available</legend>
+        <label><input type="radio" name="fallback" value="lowest" /><span>Use the lowest available</span></label>
+        <label><input type="radio" name="fallback" value="nearest" /><span>Use the nearest available</span></label>
+        <label><input type="radio" name="fallback" value="highest" /><span>Use the highest available</span></label>
+      </fieldset>
+
+      <p class="hint">Applies on your next page load. Reload any open X tab to apply.</p>
+      <button id="reload" type="button" hidden>Reload X tabs</button>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
