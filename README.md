@@ -37,7 +37,9 @@ The popup, the on-page badge, and the page itself are available in **English** a
 - The choice is stored under the `locale` key and applies **immediately**: the popup
   re-renders as soon as you pick, and open tabs repaint their badge the same way. Choosing
   a different language never prompts you to reload — only quality changes do, because the
-  player reads that as each playlist loads.
+  player reads that as each playlist loads. A change made from outside the popup (another
+  open popup, or a direct `localStorage` edit on the page) moves the popup's selection too,
+  without closing and reopening it.
 - The language lives in `chrome.storage.local`, so it follows your profile rather than
   the site. Each language is listed in its own script (فارسی / English) so you can always
   find your own.
@@ -83,6 +85,13 @@ the **short side** of the frame.
   variant, are left alone.
 - Both `XMLHttpRequest` and `fetch` are intercepted, since X uses either depending on player
   and build.
+- The settings travel **both ways, live**. Changing quality or language in the popup is
+  mirrored into an open X tab's `localStorage` immediately, and an already-open popup
+  repaints when the setting changes from anywhere else. Editing `xvq:quality` or
+  `xvq:locale` directly on the page (devtools) is pushed back into the extension's
+  storage and shows up in the popup too, so the two can never drift apart. Values that
+  are not one of the offered options are ignored rather than stored. Quality still only
+  takes effect on the next page load — that is the player, not the plumbing.
 - A small read-only badge in the bottom-right shows the active setting, in the selected
   language. Switching language repaints it immediately, with no reload — the bridge
   signals the page through a same-document event, because the browser's own `storage`

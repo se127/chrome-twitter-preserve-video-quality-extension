@@ -92,13 +92,7 @@ async function load() {
   const keys = GROUPS.map((group) => group.key);
   const stored = await chrome.storage.local.get(keys);
 
-  const storedLocale = normalizeLocale(stored.locale);
-  currentLocale = storedLocale ?? DEFAULT_LOCALE;
-
-  current = {
-    quality: stored.quality ?? DEFAULTS.quality,
-    language: currentLocale,
-  };
+  applyStored(stored);
 
   // What the already-open tabs are actually running with. Starts equal to `current`,
   // since these are the values the pages were loaded with.
@@ -107,6 +101,54 @@ async function load() {
   for (const group of GROUPS) buildOptions(group);
   render();
 }
+
+/** Adopt a set of stored values as the popup's current selection. */
+function applyStored(stored) {
+  currentLocale = normalizeLocale(stored.locale) ?? DEFAULT_LOCALE;
+  current = {
+    quality: stored.quality ?? DEFAULTS.quality,
+    language: currentLocale,
+  };
+}
+
+/**
+ * Fold in a partial update. Only the keys actually present are taken; an absent key
+ * keeps its current value rather than snapping back to its default, so a quality-only
+ * change cannot quietly reset the language to English.
+ */
+function mergeStored(stored) {
+  applyStored({
+    locale: 'locale' in stored ? stored.locale : currentLocale,
+    quality: 'quality' in stored ? stored.quality : current.quality,
+  });
+}
+
+/**
+ * Follow storage changes made while the popup is open.
+ *
+ * Without this the popup only ever read storage once, at load(), so a change made
+ * anywhere else -- another open popup, or an edit to the page's localStorage pushed
+ * back up by the bridge -- stayed invisible until the popup was closed and reopened.
+ */
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+
+  const stored = {};
+  for (const group of GROUPS) {
+    if (changes[group.key]) stored[group.key] = changes[group.key].newValue;
+  }
+  if (!Object.keys(stored).length) return;
+
+  const wasQuality = current.quality;
+  mergeStored(stored);
+
+  // A quality change from outside still applies on the next page load, exactly as if it
+  // had been picked here -- so the reload prompt has to appear for it too.
+  render();
+  if (stored.quality !== undefined && stored.quality !== wasQuality) {
+    showReloadButton(stored.quality !== applied.quality);
+  }
+});
 
 document.addEventListener('change', (event) => {
   const { name, value } = event.target;

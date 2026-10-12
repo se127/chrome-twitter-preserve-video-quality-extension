@@ -293,6 +293,21 @@ check('bridge mirrors on storage change', /onChanged\.addListener/.test(bridgeSr
 check('bridge does not touch documentElement.lang', /documentElement\.lang\s*=/.test(bridgeSrc), false);
 check('bridge does not touch documentElement.dir', /documentElement\.dir\s*=/.test(bridgeSrc), false);
 
+console.log('\n--- page localStorage edits reach the popup ---');
+// The pipeline used to be one-way, so an edit to the page's localStorage never reached
+// chrome.storage and the popup went on showing the old choice.
+check('bridge listens for page storage events', /window\.addEventListener\('storage'/.test(bridgeSrc), true);
+check('bridge pushes page edits back into chrome.storage', /function pageEditToStorage/.test(bridgeSrc), true);
+check('bridge validates a hand-edited quality', /VALID_QUALITIES\.includes/.test(bridgeSrc), true);
+check('bridge validates a hand-edited locale', /normalizeLocale\(event\.newValue\)/.test(bridgeSrc), true);
+// The popup read storage once at load(), so anything changed later stayed invisible.
+check('popup follows storage changes while open', /chrome\.storage\.onChanged\.addListener/.test(popupBody), true);
+check('popup only reacts to the local area', /if \(area !== 'local'\) return;/.test(popupBody), true);
+// A quality-only change must not reset the language: absent keys keep their value
+// instead of snapping back to the default.
+check('partial updates keep the other setting', /function mergeStored\(stored\)/.test(popupBody), true);
+check('mergeStored does not default an absent key', /'quality' in stored \? stored\.quality : current\.quality/.test(popupBody), true);
+
 console.log('\n--- resilience ---');
 // A stale extension install missing the shared module must not disable quality control,
 // and -- the bug that started this -- must not pin the language to English either.
