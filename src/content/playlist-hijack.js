@@ -12,9 +12,11 @@
 
 const STORE_KEY = 'xvq:quality';
 const FALLBACK_KEY = 'xvq:fallback';
+const LOCALE_KEY = 'xvq:locale';
 
+// Fixed-height labels are language-neutral, so only the two extremes need translating.
 const QUALITIES = {
-  best: { label: 'Best available', height: Infinity },
+  best: { labelKey: 'qualityBest', height: Infinity },
   '2160': { label: '2160p (4K)', height: 2160 },
   '1440': { label: '1440p', height: 1440 },
   '1080': { label: '1080p', height: 1080 },
@@ -22,7 +24,7 @@ const QUALITIES = {
   '480': { label: '480p', height: 480 },
   '360': { label: '360p', height: 360 },
   '240': { label: '240p', height: 240 },
-  lowest: { label: 'Lowest available', height: -Infinity },
+  lowest: { labelKey: 'qualityLowest', height: -Infinity },
 };
 
 function readSetting(key, fallback) {
@@ -217,9 +219,23 @@ const STYLES = `
   color:#fff;font:12px/1.4 system-ui,sans-serif;padding:6px 10px;border-radius:6px;user-select:none}
 `;
 
-function currentLabel() {
-  const quality = readSetting(STORE_KEY, 'best');
-  return QUALITIES[quality]?.label ?? 'Best available';
+// Rewriting playlists is this script's core job, so it must not depend on the shared
+// i18n module being present. The fallback keeps the badge readable in English.
+const I18N = globalThis.XVQ_I18N ?? {
+  DEFAULT_LOCALE: 'en',
+  normalizeLocale: () => null,
+  dir: () => 'ltr',
+  t: (key) => ({ badgePrefix: 'Video quality', qualityBest: 'Best available', qualityLowest: 'Lowest available' })[key] ?? key,
+};
+
+function currentLocale() {
+  return I18N.normalizeLocale(readSetting(LOCALE_KEY, I18N.DEFAULT_LOCALE)) ?? I18N.DEFAULT_LOCALE;
+}
+
+function qualityLabel(quality) {
+  const entry = QUALITIES[quality];
+  if (!entry) return I18N.t('qualityBest', currentLocale());
+  return entry.labelKey ? I18N.t(entry.labelKey, currentLocale()) : entry.label;
 }
 
 function mountBadge() {
@@ -239,12 +255,17 @@ function mountBadge() {
 function renderBadge() {
   const badge = document.getElementById('xvq-badge');
   if (!badge) return;
-  badge.textContent = `Video quality: ${currentLabel()}`;
+
+  const l = currentLocale();
+  // Farsi is RTL, so let the badge lay itself out accordingly.
+  badge.dir = I18N.dir(l);
+  badge.lang = l;
+  badge.textContent = `${I18N.t('badgePrefix', l)}: ${qualityLabel(readSetting(STORE_KEY, 'best'))}`;
 }
 
 // React to the popup writing a new setting (mirrored into localStorage by the bridge).
 window.addEventListener('storage', (event) => {
-  if (event.key === STORE_KEY || event.key === FALLBACK_KEY) renderBadge();
+  if (event.key === STORE_KEY || event.key === FALLBACK_KEY || event.key === LOCALE_KEY) renderBadge();
 });
 
 // X is a SPA -- wait for the document to be usable before adding UI.

@@ -9,27 +9,42 @@
 
 const QUALITY_KEY = 'quality';
 const FALLBACK_KEY = 'fallback';
+const LOCALE_KEY = 'locale';
 
 const PAGE_QUALITY_KEY = 'xvq:quality';
 const PAGE_FALLBACK_KEY = 'xvq:fallback';
+const PAGE_LOCALE_KEY = 'xvq:locale';
+
+// Mirroring quality/fallback is this script's core job, so it must survive the shared
+// i18n module being absent (e.g. a stale extension that predates it). Degrade to English
+// rather than throwing, otherwise a missing file would disable quality control entirely.
+const I18N = globalThis.XVQ_I18N ?? {
+  DEFAULT_LOCALE: 'en',
+  normalizeLocale: () => null,
+  dir: () => 'ltr',
+};
+
+function setPageValue(key, value) {
+  if (localStorage.getItem(key) !== value) localStorage.setItem(key, value);
+}
 
 async function mirror() {
-  const stored = await chrome.storage.local.get([QUALITY_KEY, FALLBACK_KEY]);
+  const stored = await chrome.storage.local.get([QUALITY_KEY, FALLBACK_KEY, LOCALE_KEY]);
 
-  const quality = stored[QUALITY_KEY] || 'best';
-  const fallback = stored[FALLBACK_KEY] || 'lowest';
+  // English is the default; a stored choice always wins over it.
+  const locale = I18N.normalizeLocale(stored[LOCALE_KEY]) ?? I18N.DEFAULT_LOCALE;
 
-  if (localStorage.getItem(PAGE_QUALITY_KEY) !== quality) {
-    localStorage.setItem(PAGE_QUALITY_KEY, quality);
-  }
-  if (localStorage.getItem(PAGE_FALLBACK_KEY) !== fallback) {
-    localStorage.setItem(PAGE_FALLBACK_KEY, fallback);
-  }
+  setPageValue(PAGE_QUALITY_KEY, stored[QUALITY_KEY] || 'best');
+  setPageValue(PAGE_FALLBACK_KEY, stored[FALLBACK_KEY] || 'lowest');
+  setPageValue(PAGE_LOCALE_KEY, locale);
+
+  document.documentElement.lang = locale;
+  document.documentElement.dir = I18N.dir(locale);
 }
 
 mirror();
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes[QUALITY_KEY] || changes[FALLBACK_KEY]) mirror();
+  if (changes[QUALITY_KEY] || changes[FALLBACK_KEY] || changes[LOCALE_KEY]) mirror();
 });

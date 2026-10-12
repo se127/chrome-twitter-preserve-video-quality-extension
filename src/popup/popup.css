@@ -30,6 +30,7 @@ legend {
   font-weight: 600;
 }
 
+/* The radio must stay on the line's start edge, which flips to the right in Farsi. */
 label {
   display: flex;
   gap: 7px;
@@ -37,6 +38,10 @@ label {
   padding: 3px 2px;
   border-radius: 4px;
   cursor: pointer;
+}
+
+label input {
+  flex: none;
 }
 
 label:hover {

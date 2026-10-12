@@ -22,6 +22,26 @@ variant you selected. With one option available, the player has nothing to overr
 
 Click the extension icon to choose a quality.
 
+## Language
+
+The popup, the on-page badge, and the page itself are available in **English** and
+**فارسی (Farsi)**.
+
+- **English is the default.** The extension starts in English regardless of your browser's
+  language and stays there until you pick فارسی. Once you choose, your selection is saved
+  and restored every time.
+- **Text direction is honoured, not just the words.** Farsi lays out right-to-left — the
+  popup, the badge, and X's own `<html>` element all switch to `dir="rtl"` when Farsi is
+  active, and back to `ltr` for English.
+- The choice is stored under the `locale` key. Changing it applies to the page after a
+  reload, which the popup offers with **Reload X tabs**.
+- The language lives in `chrome.storage.local`, so it follows your profile rather than
+  the site. Each language is listed in its own script (فارسی / English) so you can always
+  find your own.
+
+All strings live in `src/common/i18n.js`. Numeric quality values such as `1080p` are
+identical in both languages and stay untranslated.
+
 ## Settings
 
 **Preferred quality** — `Best available`, `2160p`, `1440p`, `1080p`, `720p`, `480p`,
@@ -57,10 +77,12 @@ the **short side** of the frame.
 
 ```
 manifest.json                        MV3 manifest
+src/common/i18n.js                   bilingual strings, shared by all three worlds
 src/content/playlist-hijack.js       MAIN world: rewrites the m3u8 master playlist
 src/content/settings-bridge.js       ISOLATED world: mirrors chrome.storage -> localStorage
 src/popup/                           popup UI (popup.html/css/js)
 test-hijack.js                       tests for the playlist rewriter
+test-i18n.js                         tests for language + text direction
 ```
 
 Two content scripts are needed because the playlist rewriter must run in the page's own JS
@@ -68,12 +90,14 @@ realm to patch `XMLHttpRequest`/`fetch` (and so cannot use `chrome.*` APIs), whi
 lives on the extension origin (and so cannot reach `x.com`'s `localStorage`). The bridge
 script connects them.
 
+`src/common/i18n.js` is loaded ahead of both content scripts and also by the popup, so all
+three render the same language from one table. It touches neither `chrome.*` nor the DOM —
+only the words — so it stays loadable in any world.
+
 ## Tests
 
 ```sh
-bun test-hijack.js
-# or
-node test-hijack.js
+bun test-hijack.js && bun test-i18n.js
 ```
 
 ## Privacy

@@ -18,7 +18,7 @@
         "*://*.x.com/i/cards-frame/*",
         "*://*.twitter.com/i/cards-frame/*"
       ],
-      "js": ["src/content/playlist-hijack.js"],
+      "js": ["src/common/i18n.js", "src/content/playlist-hijack.js"],
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": false
@@ -32,7 +32,7 @@
         "*://*.x.com/i/cards-frame/*",
         "*://*.twitter.com/i/cards-frame/*"
       ],
-      "js": ["src/content/settings-bridge.js"],
+      "js": ["src/common/i18n.js", "src/content/settings-bridge.js"],
       "run_at": "document_start",
       "world": "ISOLATED",
       "all_frames": false
