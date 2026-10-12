@@ -215,6 +215,18 @@ check('bridge does not use removed detectLocale', /detectLocale/.test(bridgeSrc)
 check('popup does not use removed detectLocale', /detectLocale/.test(popupBody), false);
 check('no source still references detectLocale', /detectLocale/.test([hijackSrc, bridgeSrc, popupBody, i18nSrc].join('\n')), false);
 
+console.log('\n--- reload is only needed for quality/fallback ---');
+// Language applies instantly, so changing it must not prompt for a reload.
+const changeHandler = popupBody.slice(popupBody.indexOf("addEventListener('change'"));
+check('language change does not show the reload button', /if \(group\.name !== 'language'\) showReloadButton\(\);/.test(changeHandler), true);
+check('quality change still shows the reload button', /!== 'language'/.test(changeHandler), true);
+check('showReloadButton is still reachable', /function showReloadButton\(\)/.test(popupBody), true);
+// The popup re-renders on every change, which is what makes language apply immediately.
+check('popup re-renders on change', /render\(\);/.test(changeHandler), true);
+// The bridge pushes lang/dir to open tabs live, without a reload.
+check('bridge mirrors on storage change', /onChanged\.addListener/.test(bridgeSrc), true);
+check('bridge sets html lang/dir', /documentElement\.lang = locale/.test(bridgeSrc) && /documentElement\.dir = I18N\.dir\(locale\)/.test(bridgeSrc), true);
+
 console.log('\n--- resilience ---');
 // A stale extension install missing the shared module must not disable quality control.
 check('bridge guards a missing i18n module', /globalThis\.XVQ_I18N \?\?/.test(bridgeSrc), true);

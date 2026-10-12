@@ -120,7 +120,11 @@ document.addEventListener('change', (event) => {
   chrome.storage.local.set({ [group.key]: current[group.name] });
 
   render();
-  showReloadButton();
+
+  // Language is the extension's own: the popup re-renders here and the bridge pushes
+  // lang/dir into open tabs live, so it applies immediately. Quality and fallback are
+  // read by the MAIN-world script as each playlist loads, so those need a reload.
+  if (group.name !== 'language') showReloadButton();
 });
 
 // The MAIN-world script reads settings on load, so offer to reload open X tabs.

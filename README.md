@@ -33,8 +33,10 @@ The popup, the on-page badge, and the page itself are available in **English** a
 - **Text direction is honoured, not just the words.** Farsi lays out right-to-left — the
   popup, the badge, and X's own `<html>` element all switch to `dir="rtl"` when Farsi is
   active, and back to `ltr` for English.
-- The choice is stored under the `locale` key. Changing it applies to the page after a
-  reload, which the popup offers with **Reload X tabs**.
+- The choice is stored under the `locale` key and applies **immediately**: the popup
+  re-renders as soon as you pick, and open tabs get the new `lang`/`dir` pushed to them
+  live. Choosing a different language never prompts you to reload — only quality and
+  fallback changes do, because the player reads those as each playlist loads.
 - The language lives in `chrome.storage.local`, so it follows your profile rather than
   the site. Each language is listed in its own script (فارسی / English) so you can always
   find your own.
@@ -65,7 +67,8 @@ the **short side** of the frame.
 
 ## Behaviour notes
 
-- Changes apply on the next page load; the popup has a **Reload X tabs** button.
+- Quality and fallback changes apply on the next page load; the popup offers
+  **Reload X tabs**.
 - The extension only touches HLS master playlists. Non-HLS videos, and videos with a single
   variant, are left alone.
 - Both `XMLHttpRequest` and `fetch` are intercepted, since X uses either depending on player
