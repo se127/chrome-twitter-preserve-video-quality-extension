@@ -30,13 +30,14 @@ The popup, the on-page badge, and the page itself are available in **English** a
 - **English is the default.** The extension starts in English regardless of your browser's
   language and stays there until you pick فارسی. Once you choose, your selection is saved
   and restored every time.
-- **Text direction is honoured, not just the words.** Farsi lays out right-to-left — the
-  popup, the badge, and X's own `<html>` element all switch to `dir="rtl"` when Farsi is
-  active, and back to `ltr` for English.
+- **Text direction is honoured, not just the words.** Farsi lays out right-to-left, so the
+  popup and the on-page badge both switch to `dir="rtl"` when Farsi is active, and back to
+  `ltr` for English. The extension never changes the direction of x.com itself — that
+  layout belongs to the site, not to us.
 - The choice is stored under the `locale` key and applies **immediately**: the popup
-  re-renders as soon as you pick, and open tabs get the new `lang`/`dir` pushed to them
-  live. Choosing a different language never prompts you to reload — only quality changes
-  do, because the player reads that as each playlist loads.
+  re-renders as soon as you pick, and open tabs repaint their badge the same way. Choosing
+  a different language never prompts you to reload — only quality changes do, because the
+  player reads that as each playlist loads.
 - The language lives in `chrome.storage.local`, so it follows your profile rather than
   the site. Each language is listed in its own script (فارسی / English) so you can always
   find your own.
@@ -82,7 +83,10 @@ the **short side** of the frame.
   variant, are left alone.
 - Both `XMLHttpRequest` and `fetch` are intercepted, since X uses either depending on player
   and build.
-- A small read-only badge in the bottom-right shows the active setting.
+- A small read-only badge in the bottom-right shows the active setting, in the selected
+  language. Switching language repaints it immediately, with no reload — the bridge
+  signals the page through a same-document event, because the browser's own `storage`
+  event deliberately does not fire in the tab that made the change.
 - Requires a reload after installing or changing permissions for an already-open tab.
 
 ## Layout
@@ -95,6 +99,7 @@ src/content/settings-bridge.js       ISOLATED world: mirrors chrome.storage -> l
 src/popup/                           popup UI (popup.html/css/js)
 test-hijack.js                       tests for the playlist rewriter
 test-i18n.js                         tests for language + text direction
+test-sync.js                        tests the popup -> bridge -> badge pipeline
 ```
 
 Two content scripts are needed because the playlist rewriter must run in the page's own JS
@@ -109,8 +114,13 @@ only the words — so it stays loadable in any world.
 ## Tests
 
 ```sh
-bun test-hijack.js && bun test-i18n.js
+bun test-hijack.js && bun test-i18n.js && bun test-sync.js
 ```
+
+`test-sync.js` exists because the three halves each passed their own tests while the
+pipeline was broken: the popup showed Farsi, the page mirrored `en`. It wires the real
+popup and bridge together against a fake `chrome.storage`, so a break between them shows
+up here rather than in the browser.
 
 ## Privacy
 

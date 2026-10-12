@@ -28,6 +28,7 @@
         hint: 'Applies on your next page load. Reload any open X tab to apply.',
         reloadTabs: 'Reload X tabs',
         badgePrefix: 'Video quality',
+        badgeTitle: 'Set this in the X Video Quality extension popup',
       },
     },
     fa: {
@@ -48,6 +49,7 @@
         hint: 'در بارگذاری بعدی صفحه اعمال می‌شود. برای اعمال، هر تب باز X را دوباره بارگذاری کنید.',
         reloadTabs: 'بارگذاری دوباره تب‌های X',
         badgePrefix: 'کیفیت ویدیو',
+        badgeTitle: 'این را در پنجره افزونه X Video Quality تنظیم کنید',
       },
     },
   };

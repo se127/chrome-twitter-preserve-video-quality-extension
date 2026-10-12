@@ -135,6 +135,7 @@ check('no empty strings', [...enKeys, ...faKeys].filter((k) => !t(k, 'en').trim(
 // Every t('key') call in the popup and the rewriter must exist in the table.
 const popupSrc = read('./src/popup/popup.js');
 const popupHtml = read('./src/popup/popup.html');
+const bridgeSrc = read('./src/content/settings-bridge.js');
 const usedKeys = [...popupSrc, ...hijackSrc, ...read('./src/content/settings-bridge.js')]
   .flatMap((src) => [...src.matchAll(/\bt\(\s*'([a-zA-Z]+)'/g)].map((m) => m[1]));
 check('every t() key used in source exists', [...new Set(usedKeys)].filter((key) => !enKeys.includes(key)), []);
@@ -158,6 +159,32 @@ check('unknown quality falls back to "best"', (setQuality('nonsense'), hijack.qu
 check('qualityLabel("lowest") is translated in Farsi', (setLocale('fa'), hijack.qualityLabel('lowest')), 'پایین ترین کیفیت موجود');
 check('qualityLabel("lowest") is translated in English', (setLocale('en'), hijack.qualityLabel('lowest')), 'Lowest available');
 check('qualityLabel("2160") is neutral', hijack.qualityLabel('2160'), '2160p (4K)');
+
+// The badge tooltip was hardcoded English and so stayed English in Farsi.
+check('English badge title', (setLocale('en'), render('en', 'best'), badge().title), 'Set this in the X Video Quality extension popup');
+check('Farsi badge title is translated', (setLocale('fa'), render('fa', 'best'), badge().title), 'این را در پنجره افزونه X Video Quality تنظیم کنید');
+check('badge title is not hardcoded in source', /badge\.title = 'Set this in/.test(hijackSrc), false);
+
+console.log('\n--- badge updates live, not only on load ---');
+// The `storage` event never fires in the tab that wrote the value, so a same-tab
+// language change reached the badge by no path at all and it stayed English.
+check('bridge dispatches a same-document event', /document\.dispatchEvent\(new CustomEvent\(PAGE_EVENT\)\)/.test(bridgeSrc), true);
+check('rewriter listens for that event', /document\.addEventListener\(SETTINGS_EVENT, renderBadge\)/.test(hijackSrc), true);
+check('both sides use the same event name', /PAGE_EVENT = 'xvq:settings-mirrored'/.test(bridgeSrc), true);
+check('rewriter event name matches', /SETTINGS_EVENT = 'xvq:settings-mirrored'/.test(hijackSrc), true);
+check('event fires on every mirror, not only the first', /function mirror\(\)[\s\S]*dispatchEvent/.test(bridgeSrc), true);
+check('storage change still triggers a re-mirror', /onChanged\.addListener/.test(bridgeSrc), true);
+
+console.log('\n--- badge waits for the mirrored locale ---');
+// The badge painted at DOMContentLoaded, before the ISOLATED bridge had written
+// xvq:locale, so it showed English. The storage event cannot fix that: it only fires
+// in other tabs. Assert the polling guard exists and is bounded.
+check('badge polls for mirrored settings', /waitForMirroredSettings\(\)/.test(hijackSrc), true);
+check('mounting triggers the wait', /renderBadge\(\);\s*\n\s*\n\s*\/\/ The badge mounts/.test(hijackSrc), true);
+check('polling has a timeout', /setTimeout\(\(\) => clearInterval\(timer\), 5000\)/.test(hijackSrc), true);
+check('polling stops once the locale lands', /clearInterval\(timer\);\s*\n\s*renderBadge\(\);/.test(hijackSrc), true);
+check('polling survives blocked storage', /return true; \/\/ storage blocked/.test(hijackSrc), true);
+check('storage event still re-renders on later changes', /addEventListener\('storage'/.test(hijackSrc), true);
 
 console.log('\n--- quality values are language-neutral ---');
 // Selection must never depend on language: same setting, same variant, both locales.
@@ -210,7 +237,6 @@ check('popup quality list has no duplicates', new Set(popupQualities).size, popu
 check('360p is offered (typo guard)', popupQualities.includes('360'), true);
 
 // The bridge must read the same storage keys the popup writes.
-const bridgeSrc = read('./src/content/settings-bridge.js');
 const bridgeKeys = [...bridgeSrc.matchAll(/^const (\w+_KEY) = '(\w+)';/gm)].map((m) => m[2]);
 check('bridge reads the keys the popup writes', bridgeKeys, ['quality', 'locale']);
 check('bridge mirrors the locale to the page', /PAGE_LOCALE_KEY = 'xvq:locale'/.test(bridgeSrc), true);
@@ -260,14 +286,28 @@ check('no unconditional show-on-open', /tabs\.length\) showReloadButton\(\)/.tes
 check('no orphan tabs.query on load', /if \(chrome\.tabs && chrome\.tabs\.query\)/.test(popupBody), false);
 // The popup re-renders on every change, which is what makes language apply immediately.
 check('popup re-renders on change', /render\(\);/.test(changeHandler), true);
-// The bridge pushes lang/dir to open tabs live, without a reload.
+// The bridge re-mirrors into open tabs live, without a reload.
 check('bridge mirrors on storage change', /onChanged\.addListener/.test(bridgeSrc), true);
-check('bridge sets html lang/dir', /documentElement\.lang = locale/.test(bridgeSrc) && /documentElement\.dir = I18N\.dir\(locale\)/.test(bridgeSrc), true);
+// The extension must NOT restyle x.com itself. It used to write documentElement.lang/dir,
+// which flipped the entire site to RTL; only the badge should ever change language.
+check('bridge does not touch documentElement.lang', /documentElement\.lang\s*=/.test(bridgeSrc), false);
+check('bridge does not touch documentElement.dir', /documentElement\.dir\s*=/.test(bridgeSrc), false);
 
 console.log('\n--- resilience ---');
-// A stale extension install missing the shared module must not disable quality control.
-check('bridge guards a missing i18n module', /globalThis\.XVQ_I18N \?\?/.test(bridgeSrc), true);
+// A stale extension install missing the shared module must not disable quality control,
+// and -- the bug that started this -- must not pin the language to English either.
+check('bridge does not depend on the shared module at all', /XVQ_I18N/.test(bridgeSrc), false);
+check('bridge normalises the locale itself', /function normalizeLocale\(raw\)/.test(bridgeSrc), true);
 check('rewriter guards a missing i18n module', /globalThis\.XVQ_I18N \?\?/.test(hijackSrc), true);
+// Its fallback must still recognise Farsi, or the badge renders English for a Farsi
+// choice -- the same failure the bridge had.
+check(
+  'rewriter fallback still understands fa',
+  /normalizeLocale: \(raw\) => \(typeof raw === 'string' && raw\.trim\(\)\.toLowerCase\(\)\.split\(\/\[-_\]\/\)\[0\] === 'fa' \? 'fa' : null\)/.test(
+    hijackSrc
+  ),
+  true
+);
 check('i18n publishes on window as well as globalThis', /window\.XVQ_I18N = globalThis\.XVQ_I18N/.test(i18nSrc), true);
 
 console.log(`\n${failed ? `${failed} FAILURES` : 'all tests pass'}`);

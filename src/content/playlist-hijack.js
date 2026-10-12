@@ -13,6 +13,10 @@
 const STORE_KEY = 'xvq:quality';
 const LOCALE_KEY = 'xvq:locale';
 
+// Dispatched by settings-bridge.js after it writes the page's localStorage. The two
+// scripts run in different JS worlds but share this document.
+const SETTINGS_EVENT = 'xvq:settings-mirrored';
+
 // Fixed-height labels are language-neutral, so only the two extremes need translating.
 const QUALITIES = {
   best: { labelKey: 'qualityBest', height: Infinity },
@@ -203,12 +207,19 @@ const STYLES = `
 `;
 
 // Rewriting playlists is this script's core job, so it must not depend on the shared
-// i18n module being present. The fallback keeps the badge readable in English.
+// i18n module being present. If it is missing we degrade to English rather than throw --
+// but the normaliser below must still understand 'fa', or a Farsi choice would silently
+// render as English here exactly as it did in the bridge.
 const I18N = globalThis.XVQ_I18N ?? {
   DEFAULT_LOCALE: 'en',
-  normalizeLocale: () => null,
-  dir: () => 'ltr',
-  t: (key) => ({ badgePrefix: 'Video quality', qualityBest: 'Best available', qualityLowest: 'Lowest available' })[key] ?? key,
+  normalizeLocale: (raw) => (typeof raw === 'string' && raw.trim().toLowerCase().split(/[-_]/)[0] === 'fa' ? 'fa' : null),
+  dir: (raw) => (String(raw).toLowerCase().split(/[-_]/)[0] === 'fa' ? 'rtl' : 'ltr'),
+  t: (key) => ({
+    badgePrefix: 'Video quality',
+    badgeTitle: 'Set this in the X Video Quality extension popup',
+    qualityBest: 'Best available',
+    qualityLowest: 'Lowest available',
+  })[key] ?? key,
 };
 
 function currentLocale() {
@@ -229,10 +240,40 @@ function mountBadge() {
 
   const badge = document.createElement('div');
   badge.id = 'xvq-badge';
-  badge.title = 'Set this in the X Video Quality extension popup';
 
   document.body.append(style, badge);
   renderBadge();
+
+  // The badge mounts at DOMContentLoaded, but settings-bridge.js mirrors locale from
+  // chrome.storage asynchronously and only in the ISOLATED world, so on first paint the
+  // page's localStorage is still empty and the badge renders the English default. The
+  // `storage` event cannot help: it fires in *other* tabs, never this one. So poll until
+  // the mirror lands, then re-render once and stop.
+  waitForMirroredSettings();
+}
+
+function waitForMirroredSettings() {
+  if (localStorageHasSettings()) {
+    renderBadge();
+    return;
+  }
+
+  const timer = setInterval(() => {
+    if (!localStorageHasSettings()) return;
+    clearInterval(timer);
+    renderBadge();
+  }, 100);
+
+  // Never poll forever if the bridge is missing or storage is unavailable.
+  setTimeout(() => clearInterval(timer), 5000);
+}
+
+function localStorageHasSettings() {
+  try {
+    return localStorage.getItem(LOCALE_KEY) !== null;
+  } catch {
+    return true; // storage blocked: the English default is all we will ever get.
+  }
 }
 
 function renderBadge() {
@@ -244,12 +285,20 @@ function renderBadge() {
   badge.dir = I18N.dir(l);
   badge.lang = l;
   badge.textContent = `${I18N.t('badgePrefix', l)}: ${qualityLabel(readSetting(STORE_KEY, 'best'))}`;
+  badge.title = I18N.t('badgeTitle', l);
 }
 
 // React to the popup writing a new setting (mirrored into localStorage by the bridge).
+// The `storage` event only fires in *other* tabs, so the same-tab case is covered by the
+// bridge's custom event and by the poll in mountBadge().
 window.addEventListener('storage', (event) => {
   if (event.key === STORE_KEY || event.key === LOCALE_KEY) renderBadge();
 });
+
+// The bridge lives in the ISOLATED world but shares this document, so its event arrives
+// here. This is what makes changing the language in the popup repaint the badge straight
+// away, without waiting for a reload.
+document.addEventListener(SETTINGS_EVENT, renderBadge);
 
 // X is a SPA -- wait for the document to be usable before adding UI.
 if (document.readyState === 'loading') {

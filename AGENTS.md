@@ -29,5 +29,7 @@
   `settings-bridge.js`; the MAIN-world rewriter reads it from there.
 - **English is the default.** A user's choice is remembered; nothing else overrides it.
 - **Text direction must be respected.** English is `ltr`, Farsi is `rtl`. Anything
-  user-facing (popup, badge, page `<html>`) has to set `dir`/`lang`, not just swap words.
+  user-facing that the extension renders itself (popup, badge) has to set `dir`/`lang`,
+  not just swap words. The extension must **not** set `dir`/`lang` on the page's own
+  `<html>` — doing so restyles all of x.com, which is the site's layout to control.
 - All strings live in `src/common/i18n.js`. Do not hardcode user-facing text elsewhere.
