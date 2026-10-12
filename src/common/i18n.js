@@ -15,7 +15,7 @@
       dir: 'ltr',
       strings: {
         appName: 'X Video Quality',
-        heading: 'Video quality',
+        heading: 'X Video Quality',
 
         qualityLegend: 'Preferred quality',
         qualityBest: 'Best available',
@@ -35,7 +35,7 @@
       dir: 'rtl',
       strings: {
         appName: 'کیفیت ویدیو X',
-        heading: 'کیفیت ویدیو',
+        heading: 'کیفیت ویدیو X',
 
         qualityLegend: 'کیفیت مورد نظر',
         qualityBest: 'بهترین کیفیت موجود',

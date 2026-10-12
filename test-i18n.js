@@ -103,8 +103,13 @@ check('no browser detection is exported', Object.keys(new Function(`${i18nSrc}; 
 check('i18n module never reads navigator', /navigator/.test(i18nSrc), false);
 
 console.log('\n--- translation ---');
-check('English heading', t('heading', 'en'), 'Video quality');
-check('Farsi heading', t('heading', 'fa'), 'کیفیت ویدیو');
+check('English heading', t('heading', 'en'), 'X Video Quality');
+check('Farsi heading', t('heading', 'fa'), 'کیفیت ویدیو X');
+// The heading names the extension, so it must match the document title in both locales.
+check('heading matches appName in English', t('heading', 'en'), t('appName', 'en'));
+check('heading matches appName in Farsi', t('heading', 'fa'), t('appName', 'fa'));
+check('Farsi heading still names X', /X/.test(t('heading', 'fa')), true);
+check('English heading still names X', /X/.test(t('heading', 'en')), true);
 check('English best', t('qualityBest', 'en'), 'Best available');
 check('Farsi best', t('qualityBest', 'fa'), 'بهترین کیفیت موجود');
 check('Farsi lowest', t('qualityLowest', 'fa'), 'پایین ترین کیفیت موجود');
