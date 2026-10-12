@@ -41,6 +41,10 @@ const button = document.getElementById('reload');
 let currentLocale = defaultLocale();
 let current = { ...DEFAULTS, language: currentLocale };
 
+// What the already-open tabs are running with, as opposed to what is picked in the
+// popup. They differ only while a quality change is waiting on a reload.
+let applied = { ...current };
+
 function label(group, value) {
   return t(LABELS[group.name][value], currentLocale);
 }
@@ -96,6 +100,10 @@ async function load() {
     language: currentLocale,
   };
 
+  // What the already-open tabs are actually running with. Starts equal to `current`,
+  // since these are the values the pages were loaded with.
+  applied = { ...current };
+
   for (const group of GROUPS) buildOptions(group);
   render();
 }
@@ -114,26 +122,28 @@ document.addEventListener('change', (event) => {
   render();
 
   // Language is the extension's own: the popup re-renders here and the bridge pushes
-  // lang/dir into open tabs live, so it applies immediately. Quality is read by the
-  // MAIN-world script as each playlist loads, so that one needs a reload.
-  if (group.name !== 'language') showReloadButton();
+  // lang/dir into open tabs live, so it applies immediately.
+  //
+  // Quality is read by the MAIN-world script as each playlist loads, so a reload is
+  // needed -- but only while the choice differs from what the open tabs are already
+  // using. This has to be a toggle, not a one-way reveal: changing 360 -> 480 -> 360
+  // without reloading leaves the tabs on 360, so the prompt must disappear again.
+  if (group.name !== 'language') showReloadButton(value !== applied[group.name]);
 });
 
 // The MAIN-world script reads settings on load, so offer to reload open X tabs.
-function showReloadButton() {
-  button.hidden = false;
+function showReloadButton(needed) {
+  button.hidden = !needed;
 }
 
 button.addEventListener('click', async () => {
   const tabs = await chrome.tabs.query({ url: ['*://*.x.com/*', '*://*.twitter.com/*'] });
   await Promise.all(tabs.map((tab) => chrome.tabs.reload(tab.id)));
+  // The tabs now run what is picked, so nothing is left waiting on a reload.
+  applied = { ...current };
   window.close();
 });
 
-if (chrome.tabs && chrome.tabs.query) {
-  chrome.tabs.query({ url: ['*://*.x.com/*', '*://*.twitter.com/*'] }).then((tabs) => {
-    if (tabs.length) showReloadButton();
-  });
-}
-
+// Deliberately no "show on open if an X tab exists" check: opening the popup after
+// choosing a quality shows nothing until that choice differs from what is in use.
 load();

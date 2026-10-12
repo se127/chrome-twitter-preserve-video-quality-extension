@@ -75,7 +75,9 @@ the **short side** of the frame.
 
 ## Behaviour notes
 
-- Quality changes apply on the next page load; the popup offers **Reload X tabs**.
+- Quality changes apply on the next page load. **Reload X tabs** shows only while your
+  pick differs from the quality already in use, so it disappears if you change your mind
+  and switch back before reloading.
 - The extension only touches HLS master playlists. Non-HLS videos, and videos with a single
   variant, are left alone.
 - Both `XMLHttpRequest` and `fetch` are intercepted, since X uses either depending on player

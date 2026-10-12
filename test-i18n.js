@@ -134,6 +134,7 @@ check('no empty strings', [...enKeys, ...faKeys].filter((k) => !t(k, 'en').trim(
 
 // Every t('key') call in the popup and the rewriter must exist in the table.
 const popupSrc = read('./src/popup/popup.js');
+const popupHtml = read('./src/popup/popup.html');
 const usedKeys = [...popupSrc, ...hijackSrc, ...read('./src/content/settings-bridge.js')]
   .flatMap((src) => [...src.matchAll(/\bt\(\s*'([a-zA-Z]+)'/g)].map((m) => m[1]));
 check('every t() key used in source exists', [...new Set(usedKeys)].filter((key) => !enKeys.includes(key)), []);
@@ -230,7 +231,7 @@ check('no source mentions FALLBACK_VALUES', /FALLBACK_VALUES/.test(allSrc), fals
 check('no source reads a "fallback" storage key', /'fallback'/.test(allSrc), false);
 check('no fallbackLegend string remains', /fallbackLegend/.test(i18nSrc), false);
 check('no fallback i18n keys remain', /fallback(Lowest|Nearest|Highest)/.test(i18nSrc), false);
-check('popup html has no fallback fieldset', /id="fallback"/.test(read('./src/popup/popup.html')), false);
+check('popup html has no fallback fieldset', /id="fallback"/.test(popupHtml), false);
 check('pickStream takes only a quality argument', /function pickStream\(streams, quality\)/.test(hijackSrc), true);
 check('pickStream steps down to the next lowest', /byHeightDesc\.find\(\(s\) => s\.height <= rule\.height\)/.test(hijackSrc), true);
 // The spec: exact choice if present, otherwise step down one, never up.
@@ -240,9 +241,23 @@ check('pickStream keeps best/lowest as literal extremes', /rule\.height === Infi
 console.log('\n--- reload is only needed for quality ---');
 // Language applies instantly, so changing it must not prompt for a reload.
 const changeHandler = popupBody.slice(popupBody.indexOf("addEventListener('change'"));
-check('language change does not show the reload button', /if \(group\.name !== 'language'\) showReloadButton\(\);/.test(changeHandler), true);
-check('quality change still shows the reload button', /!== 'language'/.test(changeHandler), true);
-check('showReloadButton is still reachable', /function showReloadButton\(\)/.test(popupBody), true);
+check(
+  'language change does not show the reload button',
+  /if \(group\.name !== 'language'\) showReloadButton\(value !== applied\[group\.name\]\);/.test(changeHandler),
+  true
+);
+check('showReloadButton still takes a flag', /function showReloadButton\(needed\)/.test(popupBody), true);
+// Must be able to hide the button again, not just reveal it: 360 -> 480 -> 360 without
+// reloading leaves the tabs on 360, so the prompt has to disappear.
+check('the button is hidden again when not needed', /button\.hidden = !needed;/.test(popupBody), true);
+check('the button is not one-way revealed', /button\.hidden = false;/.test(popupBody), false);
+// The button must appear only for a quality that differs from what tabs are running.
+check('applied tracks what tabs are running', /applied = \{ \.\.\.current \};\n/.test(popupBody), true);
+check('reloading tabs catches applied up', /applied = \{ \.\.\.current \};\s*\n\s*window\.close\(\);/.test(popupBody), true);
+check('button is hidden by default in the markup', /id="reload"[^>]*hidden/.test(popupHtml), true);
+// The old "an X tab exists -> show it" block is what made it appear every time.
+check('no unconditional show-on-open', /tabs\.length\) showReloadButton\(\)/.test(popupBody), false);
+check('no orphan tabs.query on load', /if \(chrome\.tabs && chrome\.tabs\.query\)/.test(popupBody), false);
 // The popup re-renders on every change, which is what makes language apply immediately.
 check('popup re-renders on change', /render\(\);/.test(changeHandler), true);
 // The bridge pushes lang/dir to open tabs live, without a reload.
