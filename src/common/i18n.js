@@ -21,11 +21,6 @@
         qualityBest: 'Best available',
         qualityLowest: 'Lowest available',
 
-        fallbackLegend: 'If that quality is not available',
-        fallbackLowest: 'Use the lowest available',
-        fallbackNearest: 'Use the nearest available',
-        fallbackHighest: 'Use the highest available',
-
         languageLegend: 'Language',
         languageEnglish: 'English',
         languageFarsi: 'Farsi',
@@ -45,11 +40,6 @@
         qualityLegend: 'کیفیت مورد نظر',
         qualityBest: 'بهترین کیفیت موجود',
         qualityLowest: 'پایین ترین کیفیت موجود',
-
-        fallbackLegend: 'اگر این کیفیت موجود نبود',
-        fallbackLowest: 'استفاده از پایین ترین کیفیت موجود',
-        fallbackNearest: 'استفاده از نزدیک ترین کیفیت موجود',
-        fallbackHighest: 'استفاده از بالاترین کیفیت موجود',
 
         languageLegend: 'زبان',
         languageEnglish: 'انگلیسی',

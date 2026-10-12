@@ -108,7 +108,7 @@ check('Farsi heading', t('heading', 'fa'), 'کیفیت ویدیو');
 check('English best', t('qualityBest', 'en'), 'Best available');
 check('Farsi best', t('qualityBest', 'fa'), 'بهترین کیفیت موجود');
 check('Farsi lowest', t('qualityLowest', 'fa'), 'پایین ترین کیفیت موجود');
-check('Farsi fallback nearest', t('fallbackNearest', 'fa'), 'استفاده از نزدیک ترین کیفیت موجود');
+check('Farsi quality best is not English', t('qualityBest', 'fa') !== t('qualityBest', 'en'), true);
 check('missing key falls through to English', t('qualityBest', 'de'), 'Best available');
 check('unknown key returns the key', t('nope', 'fa'), 'nope');
 check('language named in its own script', [localeLabel('en'), localeLabel('fa')], ['English', 'فارسی']);
@@ -130,8 +130,7 @@ check('no empty strings', [...enKeys, ...faKeys].filter((k) => !t(k, 'en').trim(
 // Every t('key') call in the popup and the rewriter must exist in the table.
 const popupSrc = read('./src/popup/popup.js');
 const usedKeys = [...popupSrc, ...hijackSrc, ...read('./src/content/settings-bridge.js')]
-  .flatMap((src) => [...src.matchAll(/\bt\(\s*'([a-zA-Z]+)'/g)].map((m) => m[1]))
-  .filter((key) => key !== 'fallbackLowest' && key !== 'fallbackNearest' && key !== 'fallbackHighest');
+  .flatMap((src) => [...src.matchAll(/\bt\(\s*'([a-zA-Z]+)'/g)].map((m) => m[1]));
 check('every t() key used in source exists', [...new Set(usedKeys)].filter((key) => !enKeys.includes(key)), []);
 
 console.log('\n--- badge rendering ---');
@@ -185,9 +184,10 @@ console.log('\n--- popup persistence contract ---');
 const popupBody = popupSrc;
 const groups = [...popupBody.matchAll(/name:\s*'(\w+)',\s*key:\s*'(\w+)'/g)].map((m) => [m[1], m[2]]);
 check('quality state/storage key match', groups.find((g) => g[0] === 'quality'), ['quality', 'quality']);
-check('fallback state/storage key match', groups.find((g) => g[0] === 'fallback'), ['fallback', 'fallback']);
+// The fallback fieldset was removed; nothing may reintroduce it silently.
+check('no fallback group remains', groups.find((g) => g[0] === 'fallback'), undefined);
 check('language state/storage key match', groups.find((g) => g[0] === 'language'), ['language', 'locale']);
-check('every group declares a storage key', groups.length, 3);
+check('every group declares a storage key', groups.length, 2);
 
 // The popup's quality list must match the rewriter's table exactly, or a quality could
 // be selectable but unresolvable (or vice versa).
@@ -206,7 +206,7 @@ check('360p is offered (typo guard)', popupQualities.includes('360'), true);
 // The bridge must read the same storage keys the popup writes.
 const bridgeSrc = read('./src/content/settings-bridge.js');
 const bridgeKeys = [...bridgeSrc.matchAll(/^const (\w+_KEY) = '(\w+)';/gm)].map((m) => m[2]);
-check('bridge reads the keys the popup writes', bridgeKeys, ['quality', 'fallback', 'locale']);
+check('bridge reads the keys the popup writes', bridgeKeys, ['quality', 'locale']);
 check('bridge mirrors the locale to the page', /PAGE_LOCALE_KEY = 'xvq:locale'/.test(bridgeSrc), true);
 check('rewriter reads the mirrored locale', /LOCALE_KEY = 'xvq:locale'/.test(hijackSrc), true);
 
@@ -215,7 +215,24 @@ check('bridge does not use removed detectLocale', /detectLocale/.test(bridgeSrc)
 check('popup does not use removed detectLocale', /detectLocale/.test(popupBody), false);
 check('no source still references detectLocale', /detectLocale/.test([hijackSrc, bridgeSrc, popupBody, i18nSrc].join('\n')), false);
 
-console.log('\n--- reload is only needed for quality/fallback ---');
+console.log('\n--- fallback setting is gone ---');
+// The "if that quality is not available" fieldset was removed; the rewriter now steps
+// down to the next lowest. Guard against the old plumbing creeping back in.
+const allSrc = [hijackSrc, bridgeSrc, popupBody, i18nSrc].join('\n');
+check('no source mentions FALLBACK_KEY', /FALLBACK_KEY/.test(allSrc), false);
+check('no source reads xvq:fallback', /xvq:fallback/.test(allSrc), false);
+check('no source mentions FALLBACK_VALUES', /FALLBACK_VALUES/.test(allSrc), false);
+check('no source reads a "fallback" storage key', /'fallback'/.test(allSrc), false);
+check('no fallbackLegend string remains', /fallbackLegend/.test(i18nSrc), false);
+check('no fallback i18n keys remain', /fallback(Lowest|Nearest|Highest)/.test(i18nSrc), false);
+check('popup html has no fallback fieldset', /id="fallback"/.test(read('./src/popup/popup.html')), false);
+check('pickStream takes only a quality argument', /function pickStream\(streams, quality\)/.test(hijackSrc), true);
+check('pickStream steps down to the next lowest', /byHeightDesc\.find\(\(s\) => s\.height <= rule\.height\)/.test(hijackSrc), true);
+// The spec: exact choice if present, otherwise step down one, never up.
+check('pickStream checks for an exact match first', /streams\.filter\(\(s\) => s\.height === rule\.height\)/.test(hijackSrc), true);
+check('pickStream keeps best/lowest as literal extremes', /rule\.height === Infinity/.test(hijackSrc) && /rule\.height === -Infinity/.test(hijackSrc), true);
+
+console.log('\n--- reload is only needed for quality ---');
 // Language applies instantly, so changing it must not prompt for a reload.
 const changeHandler = popupBody.slice(popupBody.indexOf("addEventListener('change'"));
 check('language change does not show the reload button', /if \(group\.name !== 'language'\) showReloadButton\(\);/.test(changeHandler), true);

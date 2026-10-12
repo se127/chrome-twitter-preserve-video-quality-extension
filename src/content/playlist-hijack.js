@@ -11,7 +11,6 @@
  */
 
 const STORE_KEY = 'xvq:quality';
-const FALLBACK_KEY = 'xvq:fallback';
 const LOCALE_KEY = 'xvq:locale';
 
 // Fixed-height labels are language-neutral, so only the two extremes need translating.
@@ -92,53 +91,37 @@ function parseStreams(text) {
 
 /**
  * Pick the stream to keep.
- * Exact height wins. When the target is absent we honor the user's fallback rule
- * ("lowest" takes the smallest variant, "nearest" the closest, "highest" the largest).
+ * Exact height wins. When the target is absent we step down to the next lowest:
+ * the biggest variant that still does not exceed the target, so a 2160p request on a
+ * 1080p-max video gets 1080p rather than 360p, and a 720p request never upscales.
  *
- * One exception: if the target is *above* everything available, we use the highest
- * instead. Asking for 2160p and silently getting 360p is never what was meant.
+ * If every variant sits above the target, the lowest available is the only sensible
+ * answer -- there is nothing to step down to, and playback still has to work.
  */
-function pickStream(streams, quality, fallback) {
+function pickStream(streams, quality) {
   if (streams.length <= 1) return streams[0] || null;
 
-  const heights = streams.map((s) => s.height);
   const byHeightDesc = [...streams].sort((a, b) => b.height - a.height);
   const byHeightAsc = [...streams].sort((a, b) => a.height - b.height);
   const rule = QUALITIES[quality] || QUALITIES['1080'];
 
-  // Named extremes don't depend on the fallback rule.
   if (rule.height === Infinity) return byHeightDesc[0];
   if (rule.height === -Infinity) return byHeightAsc[0];
 
   const exact = streams.filter((s) => s.height === rule.height);
   if (exact.length) return exact[0];
 
-  const maxHeight = Math.max(...heights);
-
-  let candidates;
-  if (rule.height > maxHeight) {
-    candidates = byHeightDesc;
-  } else if (fallback === 'lowest') {
-    candidates = byHeightAsc;
-  } else if (fallback === 'highest') {
-    candidates = byHeightDesc;
-  } else {
-    // nearest by height, ties go to the lower one so we never upscale
-    candidates = [...streams].sort(
-      (a, b) => Math.abs(a.height - rule.height) - Math.abs(b.height - rule.height) || a.height - b.height
-    );
-  }
-
-  // No variant matched the rule -- fall back to the lowest so playback still works.
-  if (!candidates.length) return null;
-  return candidates[0];
+  // Step down: highest variant at or below the target. byHeightDesc is sorted, so the
+  // first one not exceeding the target is the largest such variant.
+  const stepDown = byHeightDesc.find((s) => s.height <= rule.height);
+  return stepDown ?? byHeightAsc[0];
 }
 
 function rewrite(text) {
   const streams = parseStreams(text);
   if (!streams.length) return text;
 
-  const chosen = pickStream(streams, readSetting(STORE_KEY, 'best'), readSetting(FALLBACK_KEY, 'lowest'));
+  const chosen = pickStream(streams, readSetting(STORE_KEY, 'best'));
   if (!chosen) return text;
 
   const lines = text.split(/\r?\n/);
@@ -265,7 +248,7 @@ function renderBadge() {
 
 // React to the popup writing a new setting (mirrored into localStorage by the bridge).
 window.addEventListener('storage', (event) => {
-  if (event.key === STORE_KEY || event.key === FALLBACK_KEY || event.key === LOCALE_KEY) renderBadge();
+  if (event.key === STORE_KEY || event.key === LOCALE_KEY) renderBadge();
 });
 
 // X is a SPA -- wait for the document to be usable before adding UI.

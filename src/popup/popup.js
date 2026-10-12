@@ -1,10 +1,9 @@
 const { t, locale: resolveLocale, normalizeLocale, defaultLocale, dir, DEFAULT_LOCALE } = XVQ_I18N;
 
-const DEFAULTS = { quality: 'best', fallback: 'lowest' };
+const DEFAULTS = { quality: 'best' };
 
 // Numeric quality values are language-neutral; only the two extremes carry text.
 const QUALITY_VALUES = ['best', '2160', '1440', '1080', '720', '480', '360', '240', 'lowest'];
-const FALLBACK_VALUES = ['lowest', 'nearest', 'highest'];
 const LANGUAGE_VALUES = ['en', 'fa'];
 
 const LABELS = {
@@ -19,11 +18,6 @@ const LABELS = {
     '240': '240p',
     lowest: 'qualityLowest',
   },
-  fallback: {
-    lowest: 'fallbackLowest',
-    nearest: 'fallbackNearest',
-    highest: 'fallbackHighest',
-  },
   // Each language is named in its own script, so these ignore the active locale.
   language: {
     en: 'languageEnglish',
@@ -36,7 +30,6 @@ const LABELS = {
 // "locale", so writing "language" here would silently never persist.
 const GROUPS = [
   { name: 'quality', key: 'quality', legend: 'qualityLegend', values: QUALITY_VALUES },
-  { name: 'fallback', key: 'fallback', legend: 'fallbackLegend', values: FALLBACK_VALUES },
   { name: 'language', key: 'locale', legend: 'languageLegend', values: LANGUAGE_VALUES },
 ];
 
@@ -100,7 +93,6 @@ async function load() {
 
   current = {
     quality: stored.quality ?? DEFAULTS.quality,
-    fallback: stored.fallback ?? DEFAULTS.fallback,
     language: currentLocale,
   };
 
@@ -122,8 +114,8 @@ document.addEventListener('change', (event) => {
   render();
 
   // Language is the extension's own: the popup re-renders here and the bridge pushes
-  // lang/dir into open tabs live, so it applies immediately. Quality and fallback are
-  // read by the MAIN-world script as each playlist loads, so those need a reload.
+  // lang/dir into open tabs live, so it applies immediately. Quality is read by the
+  // MAIN-world script as each playlist loads, so that one needs a reload.
   if (group.name !== 'language') showReloadButton();
 });
 

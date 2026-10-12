@@ -35,8 +35,8 @@ The popup, the on-page badge, and the page itself are available in **English** a
   active, and back to `ltr` for English.
 - The choice is stored under the `locale` key and applies **immediately**: the popup
   re-renders as soon as you pick, and open tabs get the new `lang`/`dir` pushed to them
-  live. Choosing a different language never prompts you to reload — only quality and
-  fallback changes do, because the player reads those as each playlist loads.
+  live. Choosing a different language never prompts you to reload — only quality changes
+  do, because the player reads that as each playlist loads.
 - The language lives in `chrome.storage.local`, so it follows your profile rather than
   the site. Each language is listed in its own script (فارسی / English) so you can always
   find your own.
@@ -49,26 +49,33 @@ identical in both languages and stay untranslated.
 **Preferred quality** — `Best available`, `2160p`, `1440p`, `1080p`, `720p`, `480p`,
 `360p`, `240p`, or `Lowest available`.
 
-**If that quality is not available** — what to do when a particular video has no such
-variant:
+**If that quality is not available** — handled automatically: the extension steps down to
+the **next lowest** variant, so you never get something worse than you asked for and never
+get something better you didn't want.
 
-| Option | Behaviour |
-| --- | --- |
-| Use the lowest available | Play the smallest variant (saves bandwidth) |
-| Use the nearest available | Play whichever variant is closest in resolution |
-| Use the highest available | Play the largest variant |
+The rule is simply: **your choice if it's available, otherwise one step down — never up.**
 
-One deliberate exception: if your target is *above* everything the video offers (you ask for
-2160p but the video tops out at 1080p), the highest variant is used regardless of this
-setting. Asking for 4K and silently getting 360p is never the intent.
+| You asked for | Video offers | You get |
+| --- | --- | --- |
+| 1080p | 1080p | 1080p |
+| 720p | 720p, 480p | 720p |
+| 720p | 1080p, 480p | 480p |
+| 2160p | 1080p, 720p | 1080p |
+| 360p | 1080p, 720p | 720p |
+
+**Best available** always plays the top variant and **Lowest available** always plays the
+bottom one, whatever else the video offers.
+
+The last row is the one deliberate exception: if *every* variant sits above your target,
+there is nothing to step down to, so the lowest available is played instead. Asking for
+240p and silently getting 360p is never the intent.
 
 Portrait videos are handled — a `480x854` video counts as 480p, since quality is measured on
 the **short side** of the frame.
 
 ## Behaviour notes
 
-- Quality and fallback changes apply on the next page load; the popup offers
-  **Reload X tabs**.
+- Quality changes apply on the next page load; the popup offers **Reload X tabs**.
 - The extension only touches HLS master playlists. Non-HLS videos, and videos with a single
   variant, are left alone.
 - Both `XMLHttpRequest` and `fetch` are intercepted, since X uses either depending on player
